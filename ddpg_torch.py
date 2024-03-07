@@ -1,3 +1,4 @@
+from collections import deque
 import os
 import torch as T
 import torch.nn as nn
@@ -204,7 +205,7 @@ class ActorNetwork(nn.Module):
 class Agent(object):
     def __init__(self, alpha, beta, input_dims, tau, gamma=0.99,
                  n_actions=2, max_size=1000000, layer1_size=400,
-                 layer2_size=300, batch_size=64):
+                 layer2_size=300, batch_size=64, memory_size=10):
         self.gamma = gamma
         self.tau = tau
         self.memory = ReplayBuffer(max_size, input_dims, n_actions)
@@ -228,19 +229,33 @@ class Agent(object):
 
         self.update_network_parameters(tau=1)
 
+        self.memory_size = memory_size
+        self.states_memory = deque(maxlen=self.memory_size+1)
+        self.reset_memory()
+
+
+    def reset_memory(self):
+        for _ in range(self.memory_size+1): # fill memory with default action values
+            self.states_memory.append([0., 0., 0.])
+
     
     def choose_action(self, observation):
         self.actor.eval()
-        observation = T.tensor(observation, dtype=T.float).to(self.actor.device)
-        mu = self.actor.forward(observation).to(self.actor.device)
+        actor_input = np.concatenate([observation, np.array(self.states_memory)[1:].flatten()]) # concat observation & previous actions
+        actor_input = T.tensor(actor_input, dtype=T.float).to(self.actor.device)
+        mu = self.actor.forward(actor_input).to(self.actor.device)
         noise = self.noise()
         mu_prime = mu + T.tensor(noise, dtype=T.float).to(self.actor.device)
         self.actor.train()
-        return mu_prime.cpu().detach().numpy()
+        action = mu_prime.cpu().detach().numpy() # select action with expected best reward
+        self.states_memory.append(list(observation)) # save observation to memory
+        return action
 
 
     def remember(self, state, action, reward, new_state, done):
-        self.memory.store_transition(state, action, reward, new_state, done)
+        prev_actor_input = np.concatenate([state, np.array(self.states_memory)[0:-1].flatten()])
+        new_actor_input = np.concatenate([new_state, np.array(self.states_memory)[1:].flatten()])
+        self.memory.store_transition(prev_actor_input, action, reward, new_actor_input, done)
 
     
     def learn(self):

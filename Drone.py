@@ -9,7 +9,7 @@ class Drone:
 
     _height = 0.2 # meters
     _z_min_speed = 0.05 # meters / seconds
-    _z_max_speed = 0.3 # meters / seconds
+    _z_max_speed = 0.4 # meters / seconds
     _x_max_speed = 0.15 # meters # seconds
     _max_angular_speed = 45. # degrees / seconds
     _max_drift = 0. # 0.08 # meters

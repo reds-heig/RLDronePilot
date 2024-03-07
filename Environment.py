@@ -33,7 +33,7 @@ p2: intersection between the line and either the top, left or right border of th
 
 
 class Environment():
-    def __init__(self, seed):
+    def __init__(self, seed, max_allowed_dist=.5):
         rdm.seed(seed)
         
         self.drone = Drone(seed)
@@ -41,7 +41,7 @@ class Environment():
         self.i_episode = 0
 
         self.episode_length = 500
-        self.max_allowed_dist = 0.5 # meters
+        self.max_allowed_dist = max_allowed_dist # meters
 
     
     def reset(self): 
@@ -103,8 +103,9 @@ class Environment():
             ax = plt.gca()
             ax.xaxis.set_major_locator(plt.MultipleLocator(step))
             ax.yaxis.set_major_locator(plt.MultipleLocator(step))
+            ax.set_aspect('equal')
             
-            plt.legend()
+            plt.legend(bbox_to_anchor=(1.0,1.0))
             clear_output(wait=True)
             plt.show(block=True)
             display(plt.gcf())
