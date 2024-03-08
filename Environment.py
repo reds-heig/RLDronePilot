@@ -2,6 +2,7 @@
 from collections import namedtuple
 from IPython.display import display, clear_output
 import matplotlib.pyplot as plt
+import numpy as np
 import random as rdm
 import time
 from torch import Tensor
@@ -33,15 +34,21 @@ p2: intersection between the line and either the top, left or right border of th
 
 
 class Environment():
-    def __init__(self, seed, max_allowed_dist=.5):
+    def __init__(self, seed, max_allowed_dist, z_min_speed, z_max_speed, x_max_speed, max_angular_speed, max_drift,
+                 speed_z_activation_dist, target_dist_p1_C, alpha, beta, gamma):
         rdm.seed(seed)
         
-        self.drone = Drone(seed)
+        self.drone = Drone(seed, z_min_speed, z_max_speed, x_max_speed, max_angular_speed, max_drift)
         self.line = Line(seed, num_points=1_500)
         self.i_episode = 0
 
         self.episode_length = 500
         self.max_allowed_dist = max_allowed_dist # meters
+        self.speed_z_activation_dist = speed_z_activation_dist
+        self.target_dist_p1_C = target_dist_p1_C
+        self.alpha = alpha
+        self.beta = beta
+        self.gamma = gamma
 
     
     def reset(self): 
@@ -73,14 +80,18 @@ class Environment():
         return self.drone.sample_rdm_action()
 
 
-    def get_reward_(self, speed_z, speed_z_activation_dist=5, alpha=5, gamma=.75):
-        # speed_z in range [ 0., 1.]
+    def get_reward_(self, speed_z):
+        # speed_z in range [0., 1.]
         travelled_distance = self.line.get_travelled_distance([self.drone.pos[0] * 100, self.drone.pos[1] * 100]) / 100 # travelled_distance in meters
+        # normalized distance between p1 and the center of the image
+        dist_p1_C = abs(self.drone.p1_normalized_x) if self.drone.p1_normalized_x is not None else None
+        
         # speed_z is proportional to the travelled distance: the longer the drone flies, the more speed_z should be taken into account in the reward
         # the reward only accounts for speed_z after the drone flew a minimum of "speed_z_activation_dist" meters
-        reward_A = travelled_distance * (gamma if travelled_distance < speed_z_activation_dist else 1.)
-        reward_B = max(0, travelled_distance - speed_z_activation_dist) * alpha * speed_z
-        return reward_A + reward_B
+        reward_A = travelled_distance * (self.alpha if travelled_distance < self.speed_z_activation_dist else 1.)
+        reward_B = max(0, travelled_distance - self.speed_z_activation_dist) * self.beta * speed_z
+        reward_C = (reward_A + reward_B) * np.interp(dist_p1_C, [0., 1.], [0.1, 1.]) * self.gamma
+        return reward_A + reward_B + reward_C
 
     
     def __drone_sees_line(self, state):

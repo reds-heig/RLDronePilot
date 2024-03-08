@@ -7,12 +7,8 @@ import random as rdm
 
 class Drone:
 
+    # DO NOT CHANGE FOLLOWING CONSTANTS
     _height = 0.2 # meters
-    _z_min_speed = 0.05 # meters / seconds
-    _z_max_speed = 0.4 # meters / seconds
-    _x_max_speed = 0.15 # meters # seconds
-    _max_angular_speed = 45. # degrees / seconds
-    _max_drift = 0. # 0.08 # meters
     
     _fov = math.radians(87) # radians
     _focal_length = 0.35 # meters
@@ -27,10 +23,16 @@ class Drone:
     _n_flight_commands = int((1/_fps) / _flight_commands_rate) # number of times a flight command is repeated before the next one comes up
 
     _line_not_seen_placeholder = -2
+    # ---
 
     
-    def __init__(self, seed):
+    def __init__(self, seed, z_min_speed, z_max_speed, x_max_speed, max_angular_speed, max_drift):
         rdm.seed(seed)
+        self.z_min_speed = z_min_speed             # meters / second
+        self.z_max_speed = z_max_speed             # meters / second
+        self.x_max_speed = x_max_speed             # meters / second
+        self.max_angular_speed = max_angular_speed # degrees / seconds
+        self.max_drift = max_drift                 # meters
         self.reset()
 
 
@@ -64,8 +66,8 @@ class Drone:
 
             # apply a random drift to the drone
             rdm_drift = (
-                rdm.uniform(-1,1) * self._max_drift,
-                rdm.uniform(-1,1) * self._max_drift,
+                rdm.uniform(-1,1) * self.max_drift,
+                rdm.uniform(-1,1) * self.max_drift,
             )
             self.pos[0] = self.pos[0] + rdm_drift[0]
             self.pos[1] = self.pos[1] + rdm_drift[1]
@@ -82,12 +84,12 @@ class Drone:
 
 
     def pilot_speeds_to_drones(self, speed_z, speed_x, speed_a):
-        # speed_z [ 0., 1.] -> [_z_min_speed, _z_max_speed]
-        # speed_x [-1., 1.] -> [-_x_max_speed, _x_max_speed]
-        # speed_a [-1., 1.] -> [_max_angular_speed, -_max_angular_speed]
-        mapped_speed_z = np.interp(speed_z, [ 0., 1.], [ self._z_min_speed, self._z_max_speed])
-        mapped_speed_x = np.interp(speed_x, [-1., 1.], [-self._x_max_speed, self._x_max_speed])
-        mapped_speed_a = np.interp(speed_a, [-1., 1.], [self._max_angular_speed, -self._max_angular_speed])
+        # speed_z [ 0., 1.] -> [z_min_speed, z_max_speed]
+        # speed_x [-1., 1.] -> [-x_max_speed, x_max_speed]
+        # speed_a [-1., 1.] -> [max_angular_speed, -max_angular_speed]
+        mapped_speed_z = np.interp(speed_z, [ 0., 1.], [ self.z_min_speed, self.z_max_speed])
+        mapped_speed_x = np.interp(speed_x, [-1., 1.], [-self.x_max_speed, self.x_max_speed])
+        mapped_speed_a = np.interp(speed_a, [-1., 1.], [self.max_angular_speed, -self.max_angular_speed])
         return mapped_speed_z, mapped_speed_x, mapped_speed_a
 
 
@@ -192,7 +194,7 @@ class Drone:
         T = self.bottom_right_img_point
 
         if None not in self.p1:
-            p1_normalized_x = (self.__dist_points(Q, self.p1) / self.__dist_points(Q, T)) * 2. - 1 # in range [-1, 1], -1=left, 1=right
+            self.p1_normalized_x = (self.__dist_points(Q, self.p1) / self.__dist_points(Q, T)) * 2. - 1 # in range [-1, 1], -1=left, 1=right
 
         if None not in self.p2:
             if p2_side == None: # p2 is on the top border of the scene
@@ -209,7 +211,7 @@ class Drone:
                     p2_second = R
                 p2_normalized_z = self.__dist_points(p2_prime, self.p2) / self.__dist_points(p2_prime, p2_second) # in range [0, 1], 0=close to bottom of scene, 1=far from bottom of scene
 
-        return p1_normalized_x, p2_normalized_z, p2_normalized_x
+        return self.p1_normalized_x, p2_normalized_z, p2_normalized_x
 
 
     def plot(self, show=True):
