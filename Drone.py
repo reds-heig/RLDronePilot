@@ -26,13 +26,14 @@ class Drone:
     # ---
 
     
-    def __init__(self, seed, z_min_speed, z_max_speed, x_max_speed, max_angular_speed, max_drift):
+    def __init__(self, seed, z_min_speed, z_max_speed, x_max_speed, max_angular_speed, max_drift, allow_x_movement):
         rdm.seed(seed)
         self.z_min_speed = z_min_speed             # meters / second
         self.z_max_speed = z_max_speed             # meters / second
         self.x_max_speed = x_max_speed             # meters / second
         self.max_angular_speed = max_angular_speed # degrees / seconds
         self.max_drift = max_drift                 # meters
+        self.allow_x_movement = allow_x_movement
         self.reset()
 
 
@@ -42,15 +43,22 @@ class Drone:
 
 
     def sample_rdm_action(self):
-        action = [
-            rdm.uniform( 0., 1.), # speed_z (forward)
-            rdm.uniform(-1., 1.), # speed_x (sideways)
-            rdm.uniform(-1., 1.), # speed_a (angular)
-        ]
-        return action
+        rdm_speed_z = rdm.uniform( 0., 1.), # speed_z (forward)
+        rdm_speed_x = rdm.uniform(-1., 1.), # speed_x (sideways)
+        rdm_speed_a = rdm.uniform(-1., 1.), # speed_a (angular)
+
+        if self.allow_x_movement:
+            return [rdm_speed_z, rdm_speed_x, rdm_speed_a]
+        else:
+            return [rdm_speed_z, rdm_speed_a]
     
 
-    def update(self, prev_speed_z, prev_speed_x, prev_speed_a, line):
+    def update(self, action, line):
+        if self.allow_x_movement:
+            prev_speed_z, prev_speed_x, prev_speed_a = action
+        else:
+            prev_speed_z, prev_speed_a = action
+            prev_speed_x = 0.
 
         # change the range of the speed values
         mapped_prev_speed_z, mapped_prev_speed_x, mapped_prev_speed_a = self.pilot_speeds_to_drones(prev_speed_z, prev_speed_x, prev_speed_a)
@@ -93,39 +101,6 @@ class Drone:
         return mapped_speed_z, mapped_speed_x, mapped_speed_a
 
 
-    def __get_img_point_and_segment(self, unit_vector_dir, dist, img_width):
-        # find the point in the bottom center of the image
-        center_img_point = (
-            (self.pos[0] + unit_vector_dir[0] * dist) * 100, # *100 to get coords in cm
-            (self.pos[1] + unit_vector_dir[1] * dist) * 100, # *100 to get coords in cm
-        )
-
-        # perpendicular vector which is the "line" representing the bottom of the image
-        img_vector = (unit_vector_dir[1], -unit_vector_dir[0])
-        img_vector = (
-            img_vector[0] * img_width/2 * 100, # *100 to get coords in cm
-            img_vector[1] * img_width/2 * 100, # *100 to get coords in cm
-        )
-
-        # find left and right points of the segment
-        left_img_point = (
-            center_img_point[0] - img_vector[0],
-            center_img_point[1] - img_vector[1],
-        )
-        right_img_point = (
-            center_img_point[0] + img_vector[0],
-            center_img_point[1] + img_vector[1],
-        )
-        return left_img_point, right_img_point
-
-
-    def __dist_points(self, point1, point2):
-        x1, y1 = point1
-        x2, y2 = point2
-        distance = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
-        return distance
-    
-    
     def find_line(self, line):
         """
         Returns p1.x, p2.z, and p2.x.
@@ -259,3 +234,43 @@ class Drone:
         # line
         if show:
             plt.show()
+
+
+    def __get_img_point_and_segment(self, unit_vector_dir, dist, img_width):
+        # find the point in the bottom center of the image
+        center_img_point = (
+            (self.pos[0] + unit_vector_dir[0] * dist) * 100, # *100 to get coords in cm
+            (self.pos[1] + unit_vector_dir[1] * dist) * 100, # *100 to get coords in cm
+        )
+
+        # perpendicular vector which is the "line" representing the bottom of the image
+        img_vector = (unit_vector_dir[1], -unit_vector_dir[0])
+        img_vector = (
+            img_vector[0] * img_width/2 * 100, # *100 to get coords in cm
+            img_vector[1] * img_width/2 * 100, # *100 to get coords in cm
+        )
+
+        # find left and right points of the segment
+        left_img_point = (
+            center_img_point[0] - img_vector[0],
+            center_img_point[1] - img_vector[1],
+        )
+        right_img_point = (
+            center_img_point[0] + img_vector[0],
+            center_img_point[1] + img_vector[1],
+        )
+        return left_img_point, right_img_point
+
+
+    def __dist_points(self, point1, point2):
+        # euclidean distance between two points
+        x1, y1 = point1
+        x2, y2 = point2
+        distance = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+        return distance
+    
+    
+    @staticmethod
+    def sees_line(state):
+        # returns True only if both points of the line are seen by the drone
+        return Drone._line_not_seen_placeholder not in state

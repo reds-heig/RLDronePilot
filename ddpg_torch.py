@@ -131,13 +131,14 @@ class CriticNetwork(nn.Module):
 
 
 class ActorNetwork(nn.Module):
-    def __init__(self, alpha, input_dims, fc1_dims, fc2_dims, n_actions, name,
+    def __init__(self, alpha, input_dims, fc1_dims, fc2_dims, n_actions, allow_x_movement, name,
                  chkpt_dir='models'):
         super(ActorNetwork, self).__init__()
         self.input_dims = input_dims
         self.fc1_dims = fc1_dims
         self.fc2_dims = fc2_dims
         self.n_actions = n_actions
+        self.allow_x_movement = allow_x_movement
         self.checkpoint_file = os.path.join(chkpt_dir,name+'_ddpg')
         
         self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
@@ -159,18 +160,19 @@ class ActorNetwork(nn.Module):
 
         #f3 = 0.004
         f3 = 0.003
-        self.mu = nn.Linear(self.fc2_dims, self.n_actions)
+        
         self.mu_z = nn.Linear(self.fc2_dims, 1)
-        self.mu_x = nn.Linear(self.fc2_dims, 1)
-        self.mu_a = nn.Linear(self.fc2_dims, 1)
         T.nn.init.uniform_(self.mu_z.weight.data, -f3, f3)
         T.nn.init.uniform_(self.mu_z.bias.data,   -f3, f3)
-        T.nn.init.uniform_(self.mu_x.weight.data, -f3, f3)
-        T.nn.init.uniform_(self.mu_x.bias.data,   -f3, f3)
+        
+        if self.allow_x_movement:
+            self.mu_x = nn.Linear(self.fc2_dims, 1)
+            T.nn.init.uniform_(self.mu_x.weight.data, -f3, f3)
+            T.nn.init.uniform_(self.mu_x.bias.data,   -f3, f3)
+            
+        self.mu_a = nn.Linear(self.fc2_dims, 1)
         T.nn.init.uniform_(self.mu_a.weight.data, -f3, f3)
         T.nn.init.uniform_(self.mu_a.bias.data,   -f3, f3)
-        #self.mu.weight.data.uniform_(-f3, f3)
-        #self.mu.bias.data.uniform_(-f3, f3)
 
         self.optimizer = optim.Adam(self.parameters(), lr=alpha)
         self.device = T.device('cuda:0' if T.cuda.is_available() else 'cuda:1')
@@ -186,11 +188,16 @@ class ActorNetwork(nn.Module):
         x = self.bn2(x)
         x = F.relu(x)
         
-        action_z = T.sigmoid(self.mu_z(x)) # action_z are in range [ 0., 1.]
-        action_x = T.tanh(self.mu_x(x))    # action_x are in range [-1., 1.]
-        action_a = T.tanh(self.mu_a(x))    # action_a are in range [-1., 1.]
-        actions = T.cat([action_z, action_x, action_a], dim=-1)
-        return actions
+        action_z = T.sigmoid(self.mu_z(x))     # action_z are in range [ 0., 1.]
+        if self.allow_x_movement:
+            action_x = T.tanh(self.mu_x(x))    # action_x are in range [-1., 1.]
+        action_a = T.tanh(self.mu_a(x))        # action_a are in range [-1., 1.]
+        if self.allow_x_movement:
+            actions = T.cat([action_z, action_x, action_a], dim=-1)
+            return actions
+        else:
+            actions = T.cat([action_z, action_a], dim=-1)
+            return actions
 
     
     def save_checkpoint(self):
@@ -205,14 +212,15 @@ class ActorNetwork(nn.Module):
 class Agent(object):
     def __init__(self, alpha, beta, input_dims, tau, gamma=0.99,
                  n_actions=2, max_size=1000000, layer1_size=400,
-                 layer2_size=300, batch_size=64, memory_size=10):
+                 layer2_size=300, batch_size=64, memory_size=10, allow_x_movement=True):
         self.gamma = gamma
         self.tau = tau
         self.memory = ReplayBuffer(max_size, input_dims, n_actions)
         self.batch_size = batch_size
 
         self.actor = ActorNetwork(alpha, input_dims, layer1_size,
-                                  layer2_size, n_actions=n_actions,
+                                  layer2_size, n_actions=n_actions, 
+                                  allow_x_movement=allow_x_movement,
                                   name='Actor')
         self.critic = CriticNetwork(beta, input_dims, layer1_size,
                                     layer2_size, n_actions=n_actions,
@@ -220,6 +228,7 @@ class Agent(object):
 
         self.target_actor = ActorNetwork(alpha, input_dims, layer1_size,
                                          layer2_size, n_actions=n_actions,
+                                         allow_x_movement=allow_x_movement,
                                          name='TargetActor')
         self.target_critic = CriticNetwork(beta, input_dims, layer1_size,
                                            layer2_size, n_actions=n_actions,
@@ -231,10 +240,10 @@ class Agent(object):
 
         self.memory_size = memory_size
         self.states_memory = deque(maxlen=self.memory_size+1)
-        self.reset_memory()
+        self.reset_states_memory()
 
 
-    def reset_memory(self):
+    def reset_states_memory(self):
         for _ in range(self.memory_size+1): # fill memory with default action values
             self.states_memory.append([0., 0., 0.])
 

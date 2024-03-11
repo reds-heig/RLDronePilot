@@ -35,10 +35,10 @@ p2: intersection between the line and either the top, left or right border of th
 
 class Environment():
     def __init__(self, seed, max_allowed_dist, z_min_speed, z_max_speed, x_max_speed, max_angular_speed, max_drift,
-                 speed_z_activation_dist, target_dist_p1_C, alpha, beta, gamma):
+                 allow_x_movement, speed_z_activation_dist, target_dist_p1_C, alpha, beta, gamma):
         rdm.seed(seed)
         
-        self.drone = Drone(seed, z_min_speed, z_max_speed, x_max_speed, max_angular_speed, max_drift)
+        self.drone = Drone(seed, z_min_speed, z_max_speed, x_max_speed, max_angular_speed, max_drift, allow_x_movement)
         self.line = Line(seed, num_points=1_500)
         self.i_episode = 0
 
@@ -57,18 +57,18 @@ class Environment():
         self.line.reset()
 
         state = self.drone.find_line(self.line)
-        assert self.__drone_sees_line(state), 'Line not seen from the initial position.'
+        assert Drone.sees_line(state), 'Line not seen from the initial position.'
 
         return state
 
     
     def step(self, action):
         # compute next state
-        observation = self.drone.update(*action, self.line)
+        observation = self.drone.update(action, self.line)
         # compute reward
         reward = self.get_reward_(action[0])
         is_drone_too_far = self.line.find_closest_point([self.drone.pos[0] * 100, self.drone.pos[1] * 100])[1] / 100 > self.max_allowed_dist
-        terminated = is_drone_too_far or not self.__drone_sees_line(observation)
+        terminated = is_drone_too_far or not Drone.sees_line(observation)
         truncated = self.i_episode >= self.episode_length
         # keep track of the iteration we are in current episode
         self.i_episode += 1
@@ -94,11 +94,6 @@ class Environment():
         return reward_A + reward_B + reward_C
 
     
-    def __drone_sees_line(self, state):
-        # returns True only if both points of the line are seen by the drone
-        return Drone._line_not_seen_placeholder not in state
-
-
     def render(self, out):
         with out:
             # render the path
