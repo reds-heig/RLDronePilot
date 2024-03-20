@@ -135,17 +135,17 @@ class Drone:
             p2_l = line.find_intersection(self.top_left_img_point, self.bottom_left_img_point) # in centimeters
             p2_r = line.find_intersection(self.top_right_img_point, self.bottom_right_img_point) # in centimeters
 
-            if None in p2_l and None not in p2_r:
+            if None in p2_l and not None in p2_r:
                 # no intersection found with the left border
                 # but one intersection found with the right border
                 self.p2 = p2_r
                 p2_side = 1
-            elif None not in p2_l and None in p2_r:
+            elif not None in p2_l and None in p2_r:
                 # no intersection found with the right border
                 # but one intersection found with the left border
                 self.p2 = p2_l
                 p2_side = 0
-            elif None not in p2_l and None not in p2_r:
+            elif not None in p2_l and not None in p2_r:
                 # intersections found with both borders
                 # keep the intersection further away from the drone (z coordinate)
                 if self.__dist_points(self.bottom_left_img_point, p2_l) > self.__dist_points(self.bottom_right_img_point, p2_r):
@@ -160,7 +160,7 @@ class Drone:
 
         # normalize p1 and p2
         # also we discard the z coordinate of p1 to reduce the complexity
-        p1_normalized_x, p2_normalized_z, p2_normalized_x = \
+        self.p1_normalized_x, p2_normalized_z, p2_normalized_x = \
             self._line_not_seen_placeholder, self._line_not_seen_placeholder, self._line_not_seen_placeholder
         
         Q = self.bottom_left_img_point
@@ -168,10 +168,10 @@ class Drone:
         S = self.top_right_img_point
         T = self.bottom_right_img_point
 
-        if None not in self.p1:
+        if not None in self.p1:
             self.p1_normalized_x = (self.__dist_points(Q, self.p1) / self.__dist_points(Q, T)) * 2. - 1 # in range [-1, 1], -1=left, 1=right
 
-        if None not in self.p2:
+        if not None in self.p2:
             if p2_side == None: # p2 is on the top border of the scene
                 p2_normalized_z = 1.
                 p2_normalized_x = (self.__dist_points(R, self.p2) / self.__dist_points(R, S)) * 2. - 1 # in range [-1, 1], -1=left, 1=right
@@ -227,9 +227,9 @@ class Drone:
                 color='red', alpha=0.5,
             )
         # line (p1 and p2 are already in centimeters)
-        if self.p1 is not None and None not in self.p1:
+        if self.p1 is not None and not None in self.p1:
             plt.scatter(self.p1[0], self.p1[1], color='darkblue', marker='o', s=30, label='Line - p1')
-        if self.p2 is not None and None not in self.p2:
+        if self.p2 is not None and not None in self.p2:
             plt.scatter(self.p2[0], self.p2[1], color='darkblue', marker='o', s=30, label='Line - p2')
         # line
         if show:
@@ -273,4 +273,4 @@ class Drone:
     @staticmethod
     def sees_line(state):
         # returns True only if both points of the line are seen by the drone
-        return Drone._line_not_seen_placeholder not in state
+        return not Drone._line_not_seen_placeholder in state

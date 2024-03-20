@@ -68,7 +68,7 @@ class ReplayBuffer(object):
 
 
 class CriticNetwork(nn.Module):
-    def __init__(self, beta, input_dims, fc1_dims, fc2_dims, n_actions, name,
+    def __init__(self, lr, input_dims, fc1_dims, fc2_dims, n_actions, name,
                  chkpt_dir='models'):
         super(CriticNetwork, self).__init__()
         self.input_dims = input_dims
@@ -101,7 +101,7 @@ class CriticNetwork(nn.Module):
         #self.q.weight.data.uniform_(-f3, f3)
         #self.q.bias.data.uniform_(-f3, f3)
 
-        self.optimizer = optim.Adam(self.parameters(), lr=beta)
+        self.optimizer = optim.Adam(self.parameters(), lr=lr)
         self.device = T.device('cuda:0' if T.cuda.is_available() else 'cuda:1')
 
         self.to(self.device)
@@ -127,11 +127,11 @@ class CriticNetwork(nn.Module):
     
     def load_checkpoint(self):
         print('... loading checkpoint ...')
-        self.load_state_dict(T.load(self.checkpoint_file))
+        self.load_state_dict(T.load(self.checkpoint_file), strict=False)
 
 
 class ActorNetwork(nn.Module):
-    def __init__(self, alpha, input_dims, fc1_dims, fc2_dims, n_actions, allow_x_movement, name,
+    def __init__(self, lr, input_dims, fc1_dims, fc2_dims, n_actions, allow_x_movement, name,
                  chkpt_dir='models'):
         super(ActorNetwork, self).__init__()
         self.input_dims = input_dims
@@ -174,7 +174,7 @@ class ActorNetwork(nn.Module):
         T.nn.init.uniform_(self.mu_a.weight.data, -f3, f3)
         T.nn.init.uniform_(self.mu_a.bias.data,   -f3, f3)
 
-        self.optimizer = optim.Adam(self.parameters(), lr=alpha)
+        self.optimizer = optim.Adam(self.parameters(), lr=lr)
         self.device = T.device('cuda:0' if T.cuda.is_available() else 'cuda:1')
 
         self.to(self.device)
@@ -206,31 +206,32 @@ class ActorNetwork(nn.Module):
     
     def load_checkpoint(self):
         print('... loading checkpoint ...')
-        self.load_state_dict(T.load(self.checkpoint_file))
+        self.load_state_dict(T.load(self.checkpoint_file), strict=False)
 
 
 class Agent(object):
-    def __init__(self, alpha, beta, input_dims, tau, gamma=0.99,
-                 n_actions=2, max_size=1000000, layer1_size=400,
+    def __init__(self, actor_lr, critic_lr, input_dims, tau, 
+                 gamma=0.99, n_actions=2, max_size=1000000, layer1_size=400,
                  layer2_size=300, batch_size=64, memory_size=10, allow_x_movement=True):
         self.gamma = gamma
         self.tau = tau
         self.memory = ReplayBuffer(max_size, input_dims, n_actions)
         self.batch_size = batch_size
+        self.allow_x_movement = allow_x_movement
 
-        self.actor = ActorNetwork(alpha, input_dims, layer1_size,
+        self.actor = ActorNetwork(actor_lr, input_dims, layer1_size,
                                   layer2_size, n_actions=n_actions, 
                                   allow_x_movement=allow_x_movement,
                                   name='Actor')
-        self.critic = CriticNetwork(beta, input_dims, layer1_size,
+        self.critic = CriticNetwork(critic_lr, input_dims, layer1_size,
                                     layer2_size, n_actions=n_actions,
                                     name='Critic')
 
-        self.target_actor = ActorNetwork(alpha, input_dims, layer1_size,
+        self.target_actor = ActorNetwork(actor_lr, input_dims, layer1_size,
                                          layer2_size, n_actions=n_actions,
                                          allow_x_movement=allow_x_movement,
                                          name='TargetActor')
-        self.target_critic = CriticNetwork(beta, input_dims, layer1_size,
+        self.target_critic = CriticNetwork(critic_lr, input_dims, layer1_size,
                                            layer2_size, n_actions=n_actions,
                                            name='TargetCritic')
 
@@ -245,25 +246,50 @@ class Agent(object):
 
     def reset_states_memory(self):
         for _ in range(self.memory_size+1): # fill memory with default action values
-            self.states_memory.append([0., 0., 0.])
+            if self.allow_x_movement:
+                self.states_memory.append([
+                    0., # z-speed: minimum speed
+                    0., # x-speed: neutral
+                    0., # a-speed: neutral
+                ])
+            else:
+                self.states_memory.append([
+                    0., # z-speed: minimum speed
+                    0., # a-speed: neutral
+                ])
 
     
     def choose_action(self, observation):
         self.actor.eval()
-        actor_input = np.concatenate([observation, np.array(self.states_memory)[1:].flatten()]) # concat observation & previous actions
+        # concat observation & previous actions (if memory_size > 0)
+        actor_input = np.concatenate([observation, np.array(self.states_memory)[1:].flatten()])
         actor_input = T.tensor(actor_input, dtype=T.float).to(self.actor.device)
+        # get action
         mu = self.actor.forward(actor_input).to(self.actor.device)
+        # add noise
         noise = self.noise()
         mu_prime = mu + T.tensor(noise, dtype=T.float).to(self.actor.device)
+        # select action with expected best reward
         self.actor.train()
-        action = mu_prime.cpu().detach().numpy() # select action with expected best reward
-        self.states_memory.append(list(observation)) # save observation to memory
+        action = mu_prime.cpu().detach().numpy()
+        # save observation to memory
+        self.states_memory.append(list(observation))
+        # clip speeds to make sure they are in the correct ranges (not guaranteed after the noise addition)
+        action[0]  = np.clip(action[0],   0., 1.)
+        action[1:] = np.clip(action[1:], -1., 1.)
         return action
 
 
     def remember(self, state, action, reward, new_state, done):
         prev_actor_input = np.concatenate([state, np.array(self.states_memory)[0:-1].flatten()])
         new_actor_input = np.concatenate([new_state, np.array(self.states_memory)[1:].flatten()])
+        #print(all([all(state == prev_actor_input), all(new_state == new_actor_input)]))
+        #print('state', state)
+        #print('action', action)
+        #print('reward', reward)
+        #print('new_state', new_state)
+        #print('done', done)
+        #print("====\n")
         self.memory.store_transition(prev_actor_input, action, reward, new_actor_input, done)
 
     

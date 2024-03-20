@@ -37,9 +37,22 @@ class Environment():
     def __init__(self, seed, max_allowed_dist, z_min_speed, z_max_speed, x_max_speed, max_angular_speed, max_drift,
                  allow_x_movement, speed_z_activation_dist, target_dist_p1_C, alpha, beta, gamma):
         rdm.seed(seed)
-        
-        self.drone = Drone(seed, z_min_speed, z_max_speed, x_max_speed, max_angular_speed, max_drift, allow_x_movement)
-        self.line = Line(seed, num_points=1_500)
+
+        drone_params = {
+            'seed': seed, 
+            'z_min_speed': z_min_speed, 
+            'z_max_speed': z_max_speed, 
+            'x_max_speed': x_max_speed, 
+            'max_angular_speed': max_angular_speed, 
+            'max_drift': max_drift, 
+            'allow_x_movement': allow_x_movement
+        }
+        self.drone = Drone(**drone_params)
+        line_params = {
+            'seed': seed,
+            'num_points': 1_500,
+        }
+        self.line = Line(**line_params)
         self.i_episode = 0
 
         self.episode_length = 500
@@ -70,7 +83,7 @@ class Environment():
         is_drone_too_far = self.line.find_closest_point([self.drone.pos[0] * 100, self.drone.pos[1] * 100])[1] / 100 > self.max_allowed_dist
         terminated = is_drone_too_far or not Drone.sees_line(observation)
         truncated = self.i_episode >= self.episode_length
-        # keep track of the iteration we are in current episode
+        # keep track of the iteration we are in the current episode
         self.i_episode += 1
         return observation, reward, terminated, truncated
 
