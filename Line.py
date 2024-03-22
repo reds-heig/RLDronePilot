@@ -27,6 +27,7 @@ class Line:
             window_size=self.window_size
         )
         # path is (z, x) with values in centimeters
+        self.path_length = self.get_total_length() # in centimeters
 
     
     def generate_path(self, num_points=100, max_step_size=0.1, max_angle_change=np.pi/6, straight_points=10):
@@ -119,6 +120,11 @@ class Line:
     
         # calculate the distance along the partial path from the origin to the closest point
         distance_along_path = np.sum(np.linalg.norm(np.diff(partial_path, axis=0), axis=1))
+        return distance_along_path # distance in centimeters
+
+
+    def get_total_length(self):
+        distance_along_path = np.sum(np.linalg.norm(np.diff(self.path, axis=0), axis=1))
         return distance_along_path # distance in centimeters
 
 

@@ -127,7 +127,7 @@ class CriticNetwork(nn.Module):
     
     def load_checkpoint(self):
         print('... loading checkpoint ...')
-        self.load_state_dict(T.load(self.checkpoint_file), strict=False)
+        self.load_state_dict(T.load(self.checkpoint_file), strict=True)
 
 
 class ActorNetwork(nn.Module):
@@ -206,7 +206,7 @@ class ActorNetwork(nn.Module):
     
     def load_checkpoint(self):
         print('... loading checkpoint ...')
-        self.load_state_dict(T.load(self.checkpoint_file), strict=False)
+        self.load_state_dict(T.load(self.checkpoint_file), strict=True)
 
 
 class Agent(object):

@@ -34,10 +34,11 @@ p2: intersection between the line and either the top, left or right border of th
 
 
 class Environment():
-    def __init__(self, seed, max_allowed_dist, z_min_speed, z_max_speed, x_max_speed, max_angular_speed, max_drift,
-                 allow_x_movement, speed_z_activation_dist, target_dist_p1_C, alpha, beta, gamma):
+    def __init__(self, run, seed, max_allowed_dist, z_min_speed, z_max_speed, x_max_speed, max_angular_speed, max_drift,
+                 allow_x_movement, alpha, beta, gamma, delta, terminated_reward):
         rdm.seed(seed)
 
+        self.run = run # neptune object for logging
         drone_params = {
             'seed': seed, 
             'z_min_speed': z_min_speed, 
@@ -55,13 +56,13 @@ class Environment():
         self.line = Line(**line_params)
         self.i_episode = 0
 
-        self.episode_length = 500
+        self.episode_length = self.line.path_length * 50 # path length in centimeters x 50 = maximum number of iterations per episode
         self.max_allowed_dist = max_allowed_dist # meters
-        self.speed_z_activation_dist = speed_z_activation_dist
-        self.target_dist_p1_C = target_dist_p1_C
         self.alpha = alpha
         self.beta = beta
         self.gamma = gamma
+        self.delta = delta
+        self.terminated_reward = terminated_reward
 
     
     def reset(self): 
@@ -78,11 +79,11 @@ class Environment():
     def step(self, action):
         # compute next state
         observation = self.drone.update(action, self.line)
-        # compute reward
-        reward = self.get_reward_(action[0])
+        # compute reward & check conditions
         is_drone_too_far = self.line.find_closest_point([self.drone.pos[0] * 100, self.drone.pos[1] * 100])[1] / 100 > self.max_allowed_dist
         terminated = is_drone_too_far or not Drone.sees_line(observation)
         truncated = self.i_episode >= self.episode_length
+        reward = self.get_reward_(action[0], terminated)
         # keep track of the iteration we are in the current episode
         self.i_episode += 1
         return observation, reward, terminated, truncated
@@ -93,18 +94,32 @@ class Environment():
         return self.drone.sample_rdm_action()
 
 
-    def get_reward_(self, speed_z):
-        # speed_z in range [0., 1.]
-        travelled_distance = self.line.get_travelled_distance([self.drone.pos[0] * 100, self.drone.pos[1] * 100]) / 100 # travelled_distance in meters
-        # normalized distance between p1 and the center of the image
-        dist_p1_C = abs(self.drone.p1_normalized_x) if self.drone.p1_normalized_x is not None else None
-        
-        # speed_z is proportional to the travelled distance: the longer the drone flies, the more speed_z should be taken into account in the reward
-        # the reward only accounts for speed_z after the drone flew a minimum of "speed_z_activation_dist" meters
-        reward_A = travelled_distance * (self.alpha if travelled_distance < self.speed_z_activation_dist else 1.)
-        reward_B = max(0, travelled_distance - self.speed_z_activation_dist) * self.beta * speed_z
-        reward_C = (reward_A + reward_B) * np.interp(dist_p1_C, [0., 1.], [0.1, 1.]) * self.gamma
-        return reward_A + reward_B + reward_C
+    def get_reward_(self, speed_z, terminated):
+        # speed_z in range [ 0., 1.]
+        # travelled_distance in meters
+        travelled_distance = self.line.get_travelled_distance([self.drone.pos[0] * 100, self.drone.pos[1] * 100]) / 100
+        # normalized distance between p1 and the center of the image; in range [0., 1.]
+        dist_p1_C = abs(self.drone.p1_normalized_x) if not None in self.drone.p1 else None
+        # drone_angle and line_angle; in range [-1., 1.]
+        drone_angle = np.arctan(self.drone.unit_vector_dir[0] / self.drone.unit_vector_dir[1]) / (np.pi/2) if not None in self.drone.unit_vector_dir else None
+        line_angle = np.arctan((self.drone.p2[0] - self.drone.p1[0]) / (1e-5+(self.drone.p2[1] - self.drone.p1[1]))) / (np.pi/2) if not None in [*self.drone.p1, *self.drone.p2] else None
+
+        # travelled_distance_percentage in range [0., 1.]
+        travelled_distance_percentage = travelled_distance / self.line.path_length
+    
+        reward_A = travelled_distance_percentage * self.alpha
+        reward_B = travelled_distance_percentage * (speed_z * self.beta)
+        reward_C = (1 - dist_p1_C) * self.gamma if dist_p1_C is not None else 0.
+        reward_D = 1 - (abs(drone_angle - line_angle) / 2) * self.delta if not None in [drone_angle, line_angle] else 0.
+
+        reward = reward_A + reward_B + reward_C + reward_D if not terminated else self.terminated_reward
+        if self.run is not None:
+            self.run['train/reward_A'].log(reward_A)
+            self.run['train/reward_B'].log(reward_B)
+            self.run['train/reward_C'].log(reward_C)
+            self.run['train/reward_D'].log(reward_D)
+            self.run['train/reward'].log(reward)
+        return reward
 
     
     def render(self, out):
