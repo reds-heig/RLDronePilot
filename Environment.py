@@ -88,11 +88,6 @@ class Environment():
         self.i_episode += 1
         return observation, reward, terminated, truncated
 
-    
-    def sample(self):
-        # randomly sample one action (return the index of this action)
-        return self.drone.sample_rdm_action()
-
 
     def get_reward_(self, speed_z, terminated):
         # speed_z in range [ 0., 1.]
@@ -101,18 +96,22 @@ class Environment():
         # normalized distance between p1 and the center of the image; in range [0., 1.]
         dist_p1_C = abs(self.drone.p1_normalized_x) if not None in self.drone.p1 else None
         # drone_angle and line_angle; in range [-1., 1.]
-        drone_angle = np.arctan(self.drone.unit_vector_dir[0] / self.drone.unit_vector_dir[1]) / (np.pi/2) if not None in self.drone.unit_vector_dir else None
-        line_angle = np.arctan((self.drone.p2[0] - self.drone.p1[0]) / (1e-5+(self.drone.p2[1] - self.drone.p1[1]))) / (np.pi/2) if not None in [*self.drone.p1, *self.drone.p2] else None
+        drone_angle = (np.arctan(self.drone.unit_vector_dir[0] / self.drone.unit_vector_dir[1]) / (np.pi/2)) \
+                        if not None in self.drone.unit_vector_dir else None
+        line_angle = (np.arctan((self.drone.p2[0] - self.drone.p1[0]) / (1e-5+(self.drone.p2[1] - self.drone.p1[1]))) / (np.pi/2)) \
+                        if not None in [*self.drone.p1, *self.drone.p2] else None
 
         # travelled_distance_percentage in range [0., 1.]
         travelled_distance_percentage = travelled_distance / self.line.path_length
     
         reward_A = travelled_distance_percentage * self.alpha
         reward_B = travelled_distance_percentage * (speed_z * self.beta)
-        reward_C = (1 - dist_p1_C) * self.gamma if dist_p1_C is not None else 0.
-        reward_D = 1 - (abs(drone_angle - line_angle) / 2) * self.delta if not None in [drone_angle, line_angle] else 0.
+        reward_C = (travelled_distance_percentage * (1 - dist_p1_C) * self.gamma) \
+                    if dist_p1_C is not None else 0.
+        reward_D = (travelled_distance_percentage * (1 - (abs(drone_angle - line_angle) / 2)) * self.delta) \
+                    if not None in [drone_angle, line_angle] else 0.
 
-        reward = reward_A + reward_B + reward_C + reward_D if not terminated else self.terminated_reward
+        reward = (reward_A + reward_B + reward_C + reward_D) if not terminated else self.terminated_reward
         if self.run is not None:
             self.run['train/reward_A'].log(reward_A)
             self.run['train/reward_B'].log(reward_B)

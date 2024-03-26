@@ -40,17 +40,6 @@ class Drone:
     def reset(self):
         self.pos = [0., 0.] # (z, x) in meters
         self.dir = 0. # degrees
-
-
-    def sample_rdm_action(self):
-        rdm_speed_z = rdm.uniform( 0., 1.), # speed_z (forward)
-        rdm_speed_x = rdm.uniform(-1., 1.), # speed_x (sideways)
-        rdm_speed_a = rdm.uniform(-1., 1.), # speed_a (angular)
-
-        if self.allow_x_movement:
-            return [rdm_speed_z, rdm_speed_x, rdm_speed_a]
-        else:
-            return [rdm_speed_z, rdm_speed_a]
     
 
     def update(self, action, line):

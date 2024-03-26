@@ -7,7 +7,7 @@ import torch.optim as optim
 import numpy as np
 
 class OUActionNoise(object):
-    def __init__(self, mu, sigma=0.15, theta=.2, dt=1e-2, x0=None):
+    def __init__(self, mu, sigma=0.05, theta=.2, dt=5e-3, x0=None):
         self.theta = theta
         self.mu = mu
         self.sigma = sigma
@@ -210,7 +210,8 @@ class ActorNetwork(nn.Module):
 
 
 class Agent(object):
-    def __init__(self, actor_lr, critic_lr, input_dims, tau, 
+    def __init__(self, actor_lr, critic_lr, input_dims, tau,
+                 noise_sigma, noise_theta, noise_dt,
                  gamma=0.99, n_actions=2, max_size=1000000, layer1_size=400,
                  layer2_size=300, batch_size=64, memory_size=10, allow_x_movement=True):
         self.gamma = gamma
@@ -235,7 +236,7 @@ class Agent(object):
                                            layer2_size, n_actions=n_actions,
                                            name='TargetCritic')
 
-        self.noise = OUActionNoise(mu=np.zeros(n_actions))
+        self.noise = OUActionNoise(mu=np.zeros(n_actions), sigma=noise_sigma, theta=noise_theta, dt=noise_dt)
 
         self.update_network_parameters(tau=1)
 
