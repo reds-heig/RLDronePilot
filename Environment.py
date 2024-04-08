@@ -1,6 +1,7 @@
 
 from collections import namedtuple
 from IPython.display import display, clear_output
+from ipywidgets import Output
 import matplotlib.pyplot as plt
 import numpy as np
 import random as rdm
@@ -33,12 +34,13 @@ p2: intersection between the line and either the top, left or right border of th
 """
 
 
-class Environment():
-    def __init__(self, run, seed, max_allowed_dist, z_min_speed, z_max_speed, x_max_speed, max_angular_speed, max_drift,
+class Environment:
+    def __init__(self, seed, max_allowed_dist, z_min_speed, z_max_speed, x_max_speed, max_angular_speed, max_drift,
                  allow_x_movement, alpha, beta, gamma, delta, terminated_reward):
         rdm.seed(seed)
 
-        self.run = run # neptune object for logging
+        self.out = None
+        self.neptune = None # neptune object for logging
         drone_params = {
             'seed': seed, 
             'z_min_speed': z_min_speed, 
@@ -63,6 +65,10 @@ class Environment():
         self.gamma = gamma
         self.delta = delta
         self.terminated_reward = terminated_reward
+
+
+    def set_neptune(self, neptune):
+        self.neptune = neptune
 
     
     def reset(self): 
@@ -90,6 +96,7 @@ class Environment():
 
 
     def get_reward_(self, speed_z, terminated):
+        return 1. # TODO TMP
         # speed_z in range [ 0., 1.]
         # travelled_distance in meters
         travelled_distance = self.line.get_travelled_distance([self.drone.pos[0] * 100, self.drone.pos[1] * 100]) / 100
@@ -112,16 +119,17 @@ class Environment():
                     if not None in [drone_angle, line_angle] else 0.
 
         reward = (reward_A + reward_B + reward_C + reward_D) if not terminated else self.terminated_reward
-        if self.run is not None:
-            self.run['train/reward_A'].log(reward_A)
-            self.run['train/reward_B'].log(reward_B)
-            self.run['train/reward_C'].log(reward_C)
-            self.run['train/reward_D'].log(reward_D)
-            self.run['train/reward'].log(reward)
+        if self.neptune is not None:
+            self.neptune['train/reward_A'].log(reward_A)
+            self.neptune['train/reward_B'].log(reward_B)
+            self.neptune['train/reward_C'].log(reward_C)
+            self.neptune['train/reward_D'].log(reward_D)
+            self.neptune['train/reward'].log(reward)
         return reward
 
     
     def render(self, out):
+        print("rendering")
         with out:
             # render the path
             self.line.plot(show=False)
