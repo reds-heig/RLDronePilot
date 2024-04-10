@@ -3,6 +3,7 @@ from DDPGNetworks import ActorNetwork, CriticNetwork
 from Environment import Environment
 import multiprocessing as mp
 import numpy as np
+import pickle
 import torch as T
 import torch.nn.functional as F
 from utils import init_neptune
@@ -199,7 +200,7 @@ class LearningAgent(Agent):
         
         
 class ExplorationAgent(Agent):
-    def __init__(self, replay_buffer, new_weights_event, actor_lr, input_dims, render_dict, is_plot_process,
+    def __init__(self, replay_buffer, new_weights_event, actor_lr, input_dims, render_queue, is_plot_process,
                  noise_sigma, noise_theta, noise_dt, pbar_queue, log_lock, weights_shared, environment_params, neptune_params, 
                  n_actions=2, layer1_size=400, layer2_size=300, batch_size=64, memory_size=10, allow_x_movement=True):
         super().__init__(
@@ -207,7 +208,7 @@ class ExplorationAgent(Agent):
             layer1_size=layer1_size, layer2_size=layer2_size, batch_size=batch_size, allow_x_movement=allow_x_movement, weights_shared=weights_shared,
         )
         self.is_plot_process = is_plot_process
-        self.render_dict = render_dict
+        self.render_queue = render_queue
         self.pbar_queue = pbar_queue
         self.log_lock = log_lock
         self.neptune = None
@@ -244,7 +245,7 @@ class ExplorationAgent(Agent):
                 state = new_state
 
                 if self.is_plot_process:
-                    self.render_dict.update(self.env.get_render_dict())
+                    self.render_queue.put_nowait(pickle.dumps(self.env.get_render_dict()))
 
                 if not self.allow_x_movement:
                     action = [action[0], 0., action[1]]

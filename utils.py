@@ -20,8 +20,3 @@ def init_neptune(neptune_params):
     )
     run['parameters'] = neptune_params
     return run
-
-def update_pbar_func(pbar_queue, pbar):
-    while True:
-        pbar_queue.get() # wait for progress update
-        #pbar.update(1) # TODO TMP
