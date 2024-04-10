@@ -199,20 +199,20 @@ class LearningAgent(Agent):
         
         
 class ExplorationAgent(Agent):
-    def __init__(self, replay_buffer, new_weights_event, is_toggle_render, actor_lr, input_dims, plot_queue,
+    def __init__(self, replay_buffer, new_weights_event, actor_lr, input_dims, render_dict, is_plot_process,
                  noise_sigma, noise_theta, noise_dt, pbar_queue, log_lock, weights_shared, environment_params, neptune_params, 
                  n_actions=2, layer1_size=400, layer2_size=300, batch_size=64, memory_size=10, allow_x_movement=True):
         super().__init__(
             replay_buffer=replay_buffer, actor_lr=actor_lr, input_dims=input_dims, n_actions=n_actions, 
             layer1_size=layer1_size, layer2_size=layer2_size, batch_size=batch_size, allow_x_movement=allow_x_movement, weights_shared=weights_shared,
         )
-        self.plot_queue = plot_queue
+        self.is_plot_process = is_plot_process
+        self.render_dict = render_dict
         self.pbar_queue = pbar_queue
         self.log_lock = log_lock
         self.neptune = None
         self.neptune_params = neptune_params
         self.new_weights_event = new_weights_event
-        self.is_toggle_render = is_toggle_render
         self.env = Environment(**environment_params)
         self.noise = OUActionNoise(mu=np.zeros(n_actions), sigma=noise_sigma, theta=noise_theta, dt=noise_dt)
 
@@ -225,7 +225,7 @@ class ExplorationAgent(Agent):
         # init Neptune if this Process is the logger one
         if self.neptune_params is not None:
             self.neptune = init_neptune(self.neptune_params)
-            #self.env.set_neptune(self.neptune)
+            self.env.set_neptune(self.neptune)
         
         while True:
             episode_speedz, episode_speedx, episode_speeda, episode_score = 0., 0., 0., 0.
@@ -243,8 +243,8 @@ class ExplorationAgent(Agent):
                 self.remember(state, action, reward, new_state, int(done))
                 state = new_state
 
-                if self.is_toggle_render is not None and self.is_toggle_render.is_set():
-                    self.plot_queue.put(self.env)
+                if self.is_plot_process:
+                    self.render_dict.update(self.env.get_render_dict())
 
                 if not self.allow_x_movement:
                     action = [action[0], 0., action[1]]

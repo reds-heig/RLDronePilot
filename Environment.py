@@ -1,7 +1,5 @@
 
 from collections import namedtuple
-from IPython.display import display, clear_output
-from ipywidgets import Output
 import matplotlib.pyplot as plt
 import numpy as np
 import random as rdm
@@ -39,7 +37,6 @@ class Environment:
                  allow_x_movement, alpha, beta, gamma, delta, terminated_reward):
         rdm.seed(seed)
 
-        self.out = None
         self.neptune = None # neptune object for logging
         drone_params = {
             'seed': seed, 
@@ -127,27 +124,29 @@ class Environment:
             self.neptune['train/reward'].log(reward)
         return reward
 
-    
-    def render(self, out):
-        print("rendering")
-        with out:
-            # render the path
-            self.line.plot(show=False)
-            # render the drone
-            self.drone.plot(show=False)
-            # render the closest point in the path from the drone
-            closest_point_in_cm = self.line.find_closest_point([self.drone.pos[0] * 100, self.drone.pos[1] * 100])[0]
-            plt.scatter(closest_point_in_cm[0], closest_point_in_cm[1], color='darkgreen', marker='o', s=10, label='Closest point in path')
-            
-            # customize the axis step
-            step = 50
-            ax = plt.gca()
-            ax.xaxis.set_major_locator(plt.MultipleLocator(step))
-            ax.yaxis.set_major_locator(plt.MultipleLocator(step))
-            ax.set_aspect('equal')
-            
-            plt.legend(bbox_to_anchor=(1.0,1.0))
-            clear_output(wait=True)
-            plt.show(block=True)
-            display(plt.gcf())
-            plt.clf()
+
+    def get_render_dict(self):
+        env_render_dict = {
+            'env-closest_point_in_cm': self.line.find_closest_point([self.drone.pos[0] * 100, self.drone.pos[1] * 100])[0],
+        }
+        return dict(**self.line.get_render_dict(), **self.drone.get_render_dict(), **env_render_dict)
+
+
+    @staticmethod
+    def render(params):
+        # render the path
+        Line.render(params, show=False)
+        # render the drone
+        Drone.render(params, show=False)
+        # render the closest point in the path from the drone
+        plt.scatter(params['env-closest_point_in_cm'][0], params['env-closest_point_in_cm'][1], 
+                    color='darkgreen', marker='o', s=10, label='Closest point in path')
+        
+        # customize the axis step
+        step = 50
+        ax = plt.gca()
+        ax.xaxis.set_major_locator(plt.MultipleLocator(step))
+        ax.yaxis.set_major_locator(plt.MultipleLocator(step))
+        ax.set_aspect('equal')
+        
+        plt.legend(bbox_to_anchor=(1.0,1.0))

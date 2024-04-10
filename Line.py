@@ -143,8 +143,13 @@ class Line:
         return [None, None]
     
     
-    def plot(self, show=True):
-        plt.plot(self.path[:, 0], self.path[:, 1], linewidth=1)
+    def get_render_dict(self):
+        return {'line-path': self.path}
+
+
+    @staticmethod
+    def render(params, show=True):
+        plt.plot(params['line-path'][:, 0], params['line-path'][:, 1], linewidth=1)
         plt.title('Random Smooth Path')
         plt.xlabel('Z-axis (cm)')
         plt.ylabel('X-axis (cm)')

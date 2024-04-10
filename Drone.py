@@ -178,51 +178,22 @@ class Drone:
         return self.p1_normalized_x, p2_normalized_z, p2_normalized_x
 
 
-    def plot(self, show=True):
+    def get_render_dict(self):
         # drone position
         pos_in_cm = (
             self.pos[0] * 100,
             self.pos[1] * 100,
         )
-        plt.scatter(pos_in_cm[0], pos_in_cm[1], color='green', marker='x', s=100, label='Drone')
-        # drone direction
-        if self.unit_vector_dir is not None:
-            plt.plot(
-                [pos_in_cm[0], pos_in_cm[0] + self.unit_vector_dir[0] * 75],
-                [pos_in_cm[1], pos_in_cm[1] + self.unit_vector_dir[1] * 75],
-                color='lime', label='Direction'
-            )
-        # scene borders
-        if self.bottom_left_img_point is not None and self.bottom_right_img_point is not None and \
-           self.top_left_img_point is not None and self.top_right_img_point is not None:
-            plt.plot(
-                [self.bottom_left_img_point[0], self.bottom_right_img_point[0]], 
-                [self.bottom_left_img_point[1], self.bottom_right_img_point[1]], 
-                color='red', alpha=0.5, label='Scene borders'
-            )
-            plt.plot(
-                [self.top_left_img_point[0], self.top_right_img_point[0]], 
-                [self.top_left_img_point[1], self.top_right_img_point[1]], 
-                color='red', alpha=0.5,
-            )
-            plt.plot(
-                [self.bottom_left_img_point[0], self.top_left_img_point[0]], 
-                [self.bottom_left_img_point[1], self.top_left_img_point[1]], 
-                color='red', alpha=0.5,
-            )
-            plt.plot(
-                [self.bottom_right_img_point[0], self.top_right_img_point[0]], 
-                [self.bottom_right_img_point[1], self.top_right_img_point[1]], 
-                color='red', alpha=0.5,
-            )
-        # line (p1 and p2 are already in centimeters)
-        if self.p1 is not None and not None in self.p1:
-            plt.scatter(self.p1[0], self.p1[1], color='darkblue', marker='o', s=30, label='Line - p1')
-        if self.p2 is not None and not None in self.p2:
-            plt.scatter(self.p2[0], self.p2[1], color='darkblue', marker='o', s=30, label='Line - p2')
-        # line
-        if show:
-            plt.show()
+        return {
+            'drone-pos_in_cm': pos_in_cm,
+            'drone-unit_vector_dir': self.unit_vector_dir,
+            'drone-bottom_left_img_point': self.bottom_left_img_point,
+            'drone-bottom_right_img_point': self.bottom_right_img_point,
+            'drone-top_left_img_point': self.top_left_img_point,
+            'drone-top_right_img_point': self.top_right_img_point,
+            'drone-p1': self.p1,
+            'drone-p2': self.p2,
+        }
 
 
     def __get_img_point_and_segment(self, unit_vector_dir, dist, img_width):
@@ -257,6 +228,49 @@ class Drone:
         x2, y2 = point2
         distance = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
         return distance
+
+    
+    @staticmethod
+    def render(params, show=True):
+        plt.scatter(params['drone-pos_in_cm'][0], params['drone-pos_in_cm'][1], color='green', marker='x', s=100, label='Drone')
+        # drone direction
+        if params['drone-unit_vector_dir'] is not None:
+            plt.plot(
+                [params['drone-pos_in_cm'][0], params['drone-pos_in_cm'][0] + params['drone-unit_vector_dir'][0] * 75],
+                [params['drone-pos_in_cm'][1], params['drone-pos_in_cm'][1] + params['drone-unit_vector_dir'][1] * 75],
+                color='lime', label='Direction'
+            )
+        # scene borders
+        if params['drone-bottom_left_img_point'] is not None and params['drone-bottom_right_img_point'] is not None and \
+           params['drone-top_left_img_point'] is not None and params['drone-top_right_img_point'] is not None:
+            plt.plot(
+                [params['drone-bottom_left_img_point'][0], params['drone-bottom_right_img_point'][0]], 
+                [params['drone-bottom_left_img_point'][1], params['drone-bottom_right_img_point'][1]], 
+                color='red', alpha=0.5, label='Scene borders'
+            )
+            plt.plot(
+                [params['drone-top_left_img_point'][0], params['drone-top_right_img_point'][0]], 
+                [params['drone-top_left_img_point'][1], params['drone-top_right_img_point'][1]], 
+                color='red', alpha=0.5,
+            )
+            plt.plot(
+                [params['drone-bottom_left_img_point'][0], params['drone-top_left_img_point'][0]], 
+                [params['drone-bottom_left_img_point'][1], params['drone-top_left_img_point'][1]], 
+                color='red', alpha=0.5,
+            )
+            plt.plot(
+                [params['drone-bottom_right_img_point'][0], params['drone-top_right_img_point'][0]], 
+                [params['drone-bottom_right_img_point'][1], params['drone-top_right_img_point'][1]], 
+                color='red', alpha=0.5,
+            )
+        # line (p1 and p2 are already in centimeters)
+        if params['drone-p1'] is not None and not None in params['drone-p1']:
+            plt.scatter(params['drone-p1'][0], params['drone-p1'][1], color='darkblue', marker='o', s=30, label='Line - p1')
+        if params['drone-p2'] is not None and not None in params['drone-p2']:
+            plt.scatter(params['drone-p2'][0], params['drone-p2'][1], color='darkblue', marker='o', s=30, label='Line - p2')
+        # line
+        if show:
+            plt.show()
     
     
     @staticmethod
