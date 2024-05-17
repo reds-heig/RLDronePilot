@@ -31,20 +31,20 @@ class Line:
 
     
     def generate_path(self, num_points=100, max_step_size=0.1, max_angle_change=np.pi/6, straight_points=10):
-        # Initialize starting point
+        # initialize starting point
         path = [(0, 0)]
     
-        # Generate straight path for the specified number of points
+        # generate straight path for the specified number of points
         for i in range(1, straight_points + 1):
             path.append((i * max_step_size, 0))
     
-        # Continue with smooth path
+        # continue with smooth path
         for _ in range(straight_points + 1, num_points):
-            # Generate random step size and angle change
+            # generate random step size and angle change
             step_size = np.random.uniform(0, max_step_size)
             angle_change = np.random.uniform(-max_angle_change, max_angle_change)
     
-            # Calculate new point based on previous point, step size, and angle change
+            # calculate new point based on previous point, step size, and angle change
             x, y = path[-1]
             new_x = x + step_size * np.cos(angle_change)
             new_y = y + step_size * np.sin(angle_change)
@@ -55,14 +55,14 @@ class Line:
 
     
     def smooth_path(self, path, window_size=50):
-        # Separate x and y coordinates
+        # separate x and y coordinates
         x, y = path[:, 0], path[:, 1]
     
-        # Apply a simple moving average to smooth the path
+        # apply a simple moving average to smooth the path
         smoothed_x = np.convolve(x, np.ones(window_size)/window_size, mode='valid')
         smoothed_y = np.convolve(y, np.ones(window_size)/window_size, mode='valid')
     
-        # Pad the smoothed arrays to match the length of the original path
+        # pad the smoothed arrays to match the length of the original path
         pad_size = (len(path) - len(smoothed_x)) // 2
         smoothed_x = np.pad(smoothed_x, (pad_size, pad_size), mode='edge')
         smoothed_y = np.pad(smoothed_y, (pad_size, pad_size), mode='edge')
@@ -73,7 +73,7 @@ class Line:
         smoothed_path[:, 0] = smoothed_path[:, 0] - smoothed_path[0][0]
         smoothed_path[:, 1] = smoothed_path[:, 1] - smoothed_path[0][1]
 
-        # Interpolate y-values for evenly spaced x-values
+        # interpolate y-values for evenly spaced x-values
         target_step = smoothed_path[-1][0] / self.num_points
         new_x_values = np.arange(0, smoothed_path[-1, 0] + target_step, target_step)
         new_y_values = np.interp(new_x_values, smoothed_path[:, 0], smoothed_path[:, 1])
@@ -93,13 +93,13 @@ class Line:
     def find_closest_point(self, point, return_closest_index=False):
         # point has coordinates in centimeters
         
-        # Calculate the Euclidean distance between the given point and all points in the path
+        # calculate the Euclidean distance between the given point and all points in the path
         distances = np.linalg.norm(self.path - point, axis=1)
         
-        # Find the index of the closest point
+        # find the index of the closest point
         closest_index = np.argmin(distances)
         
-        # Get the closest point and its distance
+        # get the closest point and its distance
         closest_point = self.path[closest_index]
         distance = distances[closest_index]
 
@@ -134,12 +134,12 @@ class Line:
         for i in range(len(self.path) - 1):
             segment = LineString([self.path[i], self.path[i + 1]])
     
-            # Check for intersection
+            # check for intersection
             if vector_line.intersects(segment):
                 intersection_point = vector_line.intersection(segment)
                 return intersection_point.x, intersection_point.y
     
-        # If no intersection is found, return None
+        # if no intersection is found, return None
         return [None, None]
     
     

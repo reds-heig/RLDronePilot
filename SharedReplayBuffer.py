@@ -30,13 +30,15 @@ class SharedReplayBuffer:
             self.action_memory[index*self.n_actions : index*self.n_actions+self.n_actions] = action
             self.reward_memory[index] = reward
             self.terminal_memory[index] = 1 - done
-            
-            self.condition.notify() # notify the LearningProcess a new transition has been pushed to the buffer
+
+            # notify the LearningProcess a new transition has been pushed to the buffer
+            self.condition.notify() 
 
 
     def wait_for_transition(self):
         with self.condition:
-            self.condition.wait() # wait for a new transition to be pushed to the buffer
+            # wait for a new transition to be pushed to the buffer
+            self.condition.wait()
 
     
     def sample_buffer(self, batch_size):

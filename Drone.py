@@ -7,7 +7,7 @@ import random as rdm
 
 class Drone:
 
-    # DO NOT CHANGE FOLLOWING CONSTANTS
+    # CONSTANTS
     _height = 0.2 # meters
     
     _fov = math.radians(87) # radians

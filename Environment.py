@@ -14,7 +14,7 @@ from Line import Line
 
 Line coords are in centimeters
 Drone position coords are in meters
-Plots are done with values in centimeters
+Plots are made from values in centimeters
 
 Actions:
 - z-speed (forward), range [ 0,1] (0 = slow forward speed, 1 = fast forward speed)
@@ -93,7 +93,13 @@ class Environment:
 
 
     def get_reward_(self, speed_z, terminated):
-        return 1. # TODO TMP
+        
+        # An optimal reward function is yet to be found.
+        # Simply rewarding "alive time" remains the most
+        # effective way for the agents to learn a decent
+        # strategy. Feel free to experiment with this.
+        return 1.
+        
         # speed_z in range [ 0., 1.]
         # travelled_distance in meters
         travelled_distance = self.line.get_travelled_distance([self.drone.pos[0] * 100, self.drone.pos[1] * 100]) / 100
